@@ -127,7 +127,7 @@ fn remove_file_or_dir(path: &Path) {
     }
 }
 
-const K_PASTE_COMMAND: &str = "v";
+const K_PASTE_COMMAND: &str = "p";
 fn paste_maybe_remove(arguments: &[String], remove_afterwards: bool) {
     expect_n_arguments(arguments, 1);
 
