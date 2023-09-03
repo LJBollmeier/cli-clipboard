@@ -55,6 +55,16 @@ fn clip_command(arguments: &[String]) {
     }
 }
 
+const K_LIST_COMMAND : &str = "l";
+fn list_command(arguments: &[String]) {
+    expect_empty_arguments(arguments);
+    let store_path = get_store_path();
+
+    for line in read_to_string(store_path).unwrap().lines() {
+        println!("{}", line);
+    }
+}
+
 const K_ERASE_COMMAND: &str = "e";
 fn erase_command(arguments: &[String]) {
     expect_empty_arguments(arguments);
@@ -68,18 +78,38 @@ fn erase_command(arguments: &[String]) {
     }
 }
 
-fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> Result<()> {
+fn copy_dir_all(src: &Path, dst: &Path) -> Result<u64> {
     create_dir_all(&dst)?;
+    if !src.is_dir() {
+        let target_path_copy = dst.clone();
+        let full_target_path = target_path_copy.join(src.file_name().unwrap());
+        return copy(src, full_target_path);
+    }
+
+    let mut total_bytes = 0;
     for entry in read_dir(src)? {
         let entry = entry?;
         let ty = entry.file_type()?;
         if ty.is_dir() {
-            copy_dir_all(entry.path(), dst.as_ref().join(entry.file_name()))?;
+            match copy_dir_all(
+                entry.path().as_path(),
+                dst.join(entry.file_name()).as_path(),
+            ) {
+                Ok(count) => total_bytes += count,
+                Err(err) => {
+                    return Err(err);
+                }
+            }
         } else {
-            copy(entry.path(), dst.as_ref().join(entry.file_name()))?;
+            match copy(entry.path(), dst.join(entry.file_name())) {
+                Ok(count) => total_bytes += count,
+                Err(err) => {
+                    return Err(err);
+                }
+            }
         }
     }
-    Ok(())
+    Ok(total_bytes)
 }
 
 fn remove_file_or_dir(path: &Path) {
@@ -122,30 +152,11 @@ fn paste_maybe_remove(arguments: &[String], remove_afterwards: bool) {
             continue;
         }
 
-        if !source_path.is_dir() {
-            let target_path_copy = target_path.clone();
-            let full_target_path = target_path_copy.join(source_path.file_name().unwrap());
-
-            match copy(source_path, full_target_path) {
-                Ok(_) => (),
-                Err(err) => {
-                    println!(
-                        "Could not copy {} to {}: {}",
-                        source_path_display, target_path_display, err
-                    );
-                    continue;
-                }
-            }
-        } else {
-            match copy_dir_all(source_path, absolute_target_path) {
-                Ok(_) => (),
-                Err(err) => {
-                    println!(
-                        "Could not copy {} to {}: {}",
-                        source_path_display, target_path_display, err
-                    );
-                    continue;
-                }
+        match copy_dir_all(source_path, absolute_target_path) {
+            Ok(_) => (),
+            Err(err) => {
+                println!("{}", err);
+                continue;
             }
         }
 
@@ -179,6 +190,7 @@ fn main() {
         K_ERASE_COMMAND => erase_command,
         K_PASTE_COMMAND => paste_command,
         K_MOVE_COMMAND => move_command,
+        K_LIST_COMMAND => list_command,
         other => panic!("Subcommand '{}' not found", other),
     };
 
