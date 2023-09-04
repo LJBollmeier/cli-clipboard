@@ -55,10 +55,13 @@ fn clip_command(arguments: &[String]) {
     }
 }
 
-const K_LIST_COMMAND : &str = "l";
+const K_LIST_COMMAND: &str = "l";
 fn list_command(arguments: &[String]) {
     expect_empty_arguments(arguments);
     let store_path = get_store_path();
+    if !store_path.exists() {
+        return;
+    }
 
     for line in read_to_string(store_path).unwrap().lines() {
         println!("{}", line);
